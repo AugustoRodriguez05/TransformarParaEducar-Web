@@ -2,6 +2,15 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Trash2, Calendar, Clock, MapPin } from 'lucide-react';
 
+// Función reutilizable para peticiones a la API
+// REFACTORIZACIÓN: Problema 2 — código repetido de fetch eliminado
+const apiFetch = (url, options = {}) => {
+  return fetch(url, options).then(res => {
+    if (!res.ok) throw new Error(`Error en ${url}: ${res.status}`);
+    return res.json();
+  });
+};
+
 export default function EventManager() {
   const { user } = useAuth();
   const [eventos, setEventos] = useState([]);
@@ -19,46 +28,39 @@ export default function EventManager() {
     fetchEvents();
   }, []);
 
+  // Carga los eventos desde el servidor
   const fetchEvents = () => {
-    fetch('/api/events')
-      .then(res => res.json())
+    apiFetch('/api/events')
       .then(data => setEventos(data))
       .catch(err => console.error('Error al cargar eventos:', err));
   };
 
-  const handleCreateEvent = (e) => {
-    e.preventDefault();
-    if (!newEvent.titulo || !newEvent.descripcion || !newEvent.dia || !newEvent.mes || !newEvent.hora || !newEvent.lugar) {
+  // REFACTORIZACIÓN: Problema 1 — función extensa dividida en dos funciones más pequeñas
+
+  // Valida los campos del formulario antes de guardar
+  const validarEvento = (evento) => {
+    if (!evento.titulo || !evento.descripcion || !evento.dia || !evento.mes || !evento.hora || !evento.lugar) {
       alert('Por favor completa todos los campos.');
-      return;
+      return false;
     }
-
-    // Validar día es número de 2 dígitos
-    if (isNaN(newEvent.dia) || newEvent.dia.length > 2 || parseInt(newEvent.dia) < 1 || parseInt(newEvent.dia) > 31) {
+    const dia = parseInt(evento.dia);
+    if (isNaN(dia) || evento.dia.length > 2 || dia < 1 || dia > 31) {
       alert('Por favor ingresa un día válido (1 al 31).');
-      return;
+      return false;
     }
+    return true;
+  };
 
-    fetch('/api/events', {
+  // Envía el evento al servidor y resetea el formulario
+  const guardarEvento = (evento) => {
+    apiFetch('/api/events', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newEvent)
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('Error al guardar el evento');
-      return res.json();
+      body: JSON.stringify(evento)
     })
     .then(() => {
       fetchEvents();
-      setNewEvent({
-        titulo: '',
-        descripcion: '',
-        dia: '',
-        mes: 'Jun',
-        hora: '',
-        lugar: '',
-        tag: 'Institucional'
-      });
+      setNewEvent({ titulo: '', descripcion: '', dia: '', mes: 'Jun', hora: '', lugar: '', tag: 'Institucional' });
       alert('Evento creado exitosamente.');
     })
     .catch(err => {
@@ -67,13 +69,19 @@ export default function EventManager() {
     });
   };
 
+  // Maneja el submit del formulario: primero valida, luego guarda
+  const handleCreateEvent = (e) => {
+    e.preventDefault();
+    if (validarEvento(newEvent)) {
+      guardarEvento(newEvent);
+    }
+  };
+
+  // Elimina un evento por ID
   const handleDeleteEvent = (id) => {
     if (window.confirm('¿Seguro que deseas eliminar este evento?')) {
-      fetch(`/api/events/${id}`, { method: 'DELETE' })
-        .then(res => {
-          if (!res.ok) throw new Error('Error al eliminar');
-          fetchEvents();
-        })
+      apiFetch(`/api/events/${id}`, { method: 'DELETE' })
+        .then(() => fetchEvents())
         .catch(err => console.error(err));
     }
   };
