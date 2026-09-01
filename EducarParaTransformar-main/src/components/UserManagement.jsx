@@ -1,6 +1,15 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Trash2, Edit, UserX, UserCheck, Key } from 'lucide-react';
+import { Trash2, UserX, UserCheck, Key } from 'lucide-react';
+
+// Función reutilizable para peticiones a la API
+// REFACTORIZACIÓN: Problema 2 — misma función apiFetch para no repetir la lógica de fetch
+const apiFetch = (url, options = {}) => {
+  return fetch(url, options).then(res => {
+    if (!res.ok) throw new Error(`Error en ${url}: ${res.status}`);
+    return res.json();
+  });
+};
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -11,9 +20,9 @@ export default function UserManagement() {
     fetchUsers();
   }, []);
 
+  // Carga los usuarios desde el servidor (filtra según el rol del usuario actual)
   const fetchUsers = () => {
-    fetch('/api/users')
-      .then(res => res.json())
+    apiFetch('/api/users')
       .then(data => {
         // Docentes solo ven alumnos y padres
         if (currentUser.role === 'docente') {
@@ -25,16 +34,13 @@ export default function UserManagement() {
       .catch(err => console.error(err));
   };
 
+  // Crea un nuevo usuario
   const handleCreateUser = (e) => {
     e.preventDefault();
-    fetch('/api/users', {
+    apiFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(newUser)
-    })
-    .then(res => {
-      if (!res.ok) throw new Error('Network response was not ok');
-      return res.json();
     })
     .then(() => {
       fetchUsers();
@@ -43,37 +49,37 @@ export default function UserManagement() {
     })
     .catch(err => {
       console.error(err);
-      alert('Hubo un error al crear el usuario. Asegúrate de reiniciar el servidor (npm run dev) para aplicar los últimos cambios del backend.');
+      alert('Hubo un error al crear el usuario.');
     });
   };
 
+  // Activa o bloquea un usuario
   const toggleStatus = (id, currentStatus) => {
-    fetch(`/api/users/${id}`, {
+    apiFetch(`/api/users/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ activo: !currentStatus })
     }).then(() => fetchUsers());
   };
 
+  // Elimina un usuario por ID
   const handleDelete = (id) => {
     if (window.confirm('¿Seguro que deseas eliminar este usuario?')) {
-      fetch(`/api/users/${id}`, { method: 'DELETE' })
+      apiFetch(`/api/users/${id}`, { method: 'DELETE' })
         .then(() => fetchUsers());
     }
   };
 
+  // Cambia la contraseña de un usuario
   const handleChangePassword = (id, nombre) => {
     const newPassword = window.prompt(`Introduce la nueva contraseña para el usuario ${nombre}:`);
     if (newPassword) {
-      fetch(`/api/users/${id}`, {
+      apiFetch(`/api/users/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: newPassword })
       })
-      .then(res => {
-        if (!res.ok) throw new Error('Error al actualizar contraseña');
-        alert(`Contraseña de ${nombre} actualizada exitosamente.`);
-      })
+      .then(() => alert(`Contraseña de ${nombre} actualizada exitosamente.`))
       .catch(err => {
         console.error(err);
         alert('Hubo un error al cambiar la contraseña.');
