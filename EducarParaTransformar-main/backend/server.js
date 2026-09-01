@@ -9,6 +9,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// La base de datos usa nombres en español (titulo, resumen, etiqueta)
+// pero el frontend espera nombres en inglés (title, summary, tag).
+function mapNoticia(n) {
+  return { ...n, title: n.titulo, summary: n.resumen, tag: n.etiqueta, date: n.fecha };
+}
+
 const uploadsDir = path.join(__dirname, 'uploads');
 
 const storage = multer.diskStorage({
@@ -34,14 +40,7 @@ initDb().then(() => {
 app.get('/api/news', async (req, res) => {
   const db = await dbPromise;
   const news = await db.all('SELECT * FROM noticias ORDER BY id DESC');
-  res.json(news.map(n => ({
-    ...n,
-    title: n.titulo,
-    summary: n.resumen,
-    contenido: n.contenido,
-    tag: n.etiqueta,
-    date: n.fecha
-  })));
+  res.json(news.map(mapNoticia));
 });
 
 app.get('/api/news/:id', async (req, res) => {
@@ -49,15 +48,7 @@ app.get('/api/news/:id', async (req, res) => {
   const id = parseInt(req.params.id);
   const newsItem = await db.get('SELECT * FROM noticias WHERE id = ?', id);
   if (newsItem) {
-    res.json({
-      ...newsItem,
-      title: newsItem.titulo,
-      summary: newsItem.resumen,
-      contenido: newsItem.contenido,
-      tag: newsItem.etiqueta,
-      date: newsItem.fecha,
-      imagen: newsItem.imagen
-    });
+    res.json(mapNoticia(newsItem));
   } else {
     res.status(404).json({ message: 'News not found' });
   }
@@ -72,15 +63,7 @@ app.post('/api/news', upload.single('imagen'), async (req, res) => {
     [title, summary, contenido || '', tag || 'General', date || 'Justo ahora', imagen]
   );
   const newPost = await db.get('SELECT * FROM noticias WHERE id = ?', result.lastID);
-  res.status(201).json({
-    ...newPost,
-    title: newPost.titulo,
-    summary: newPost.resumen,
-    contenido: newPost.contenido,
-    tag: newPost.etiqueta,
-    date: newPost.fecha,
-    imagen: newPost.imagen
-  });
+  res.status(201).json(mapNoticia(newPost));
 });
 
 app.delete('/api/news/:id', async (req, res) => {
@@ -117,15 +100,7 @@ app.put('/api/news/:id', upload.single('imagen'), async (req, res) => {
   );
 
   const updatedPost = await db.get('SELECT * FROM noticias WHERE id = ?', id);
-  res.json({
-    ...updatedPost,
-    title: updatedPost.titulo,
-    summary: updatedPost.resumen,
-    contenido: updatedPost.contenido,
-    tag: updatedPost.etiqueta,
-    date: updatedPost.fecha,
-    imagen: updatedPost.imagen
-  });
+  res.json(mapNoticia(updatedPost));
 });
 
 // Rutas de Opiniones
